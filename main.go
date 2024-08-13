@@ -2,13 +2,17 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
 )
 
 var cliName string = "Pokedex"
+var apiURL string = "https://pokeapi.co/api/v2"
 
 func printPrompt() {
 	fmt.Print(cliName, "> ")
@@ -25,7 +29,41 @@ func displayHelp() {
 	)
 	fmt.Println(".help    - Show available commands")
 	fmt.Println(".clear   - Clear the terminal screen")
+	fmt.Println(".map   - Show Locations from Pokemon")
 	fmt.Println(".exit    - Closes your connection to ", cliName)
+}
+
+type LocationResponse struct {
+	Count    int        `json:"count"`
+	Next     string     `json:"next"`
+	Previous *string    `json:"previous"` // Using a pointer to handle null values
+	Results  []Location `json:"results"`
+}
+
+type Location struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
+}
+
+func showLocations() {
+	resp, err := http.Get(apiURL + "/location")
+	if err != nil {
+		fmt.Print("Error connecting to PokeAPI")
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Print("Issue with response from PokeAPI")
+	}
+
+	var response LocationResponse
+	err = json.Unmarshal([]byte(string(body)), &response)
+	if err != nil {
+		fmt.Print("Issue with shape of api response")
+	}
+
+	for i := 0; i < len(response.Results); i++ {
+		fmt.Print(response.Results[i].Name + "\n")
+	}
 }
 
 // clearScreen clears the terminal screen
@@ -55,6 +93,7 @@ func main() {
 	commands := map[string]interface{}{
 		".help":  displayHelp,
 		".clear": clearScreen,
+		".map":   showLocations,
 	}
 	// Begin the repl loop
 	reader := bufio.NewScanner(os.Stdin)
